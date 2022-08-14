@@ -1,0 +1,11 @@
+#lang sicp
+(define (calc a b sum)
+  (cond((even? b) (calc (double a)
+                        (halve b)
+                        sum))
+       ((odd? b) (calc a
+                       (- b 1)
+                       (+ sum a)))
+       ((= b 0) (+ a sum))))
+               
+                       

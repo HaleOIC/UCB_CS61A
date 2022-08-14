@@ -1,4 +1,4 @@
-# Chapter1 
+# 1Chapter1 
 
 # Building Abstractions with Procedures 
 
@@ -305,13 +305,257 @@ Such nesting of definitions, called **block structure**, is basically the right 
 
 
 
+## 1.2 Procedures and the Processes They Generate
 
+### 1.2.1 Linear Recursion and Iteration
 
+We begin by considering the factorial function, defined by 
+$$
+n! = n*(n-1)*(n-2)...3*2*1
+$$
+we can make a change and calculate the formula.
+$$
+n! = n*[(n-1)*(n-2)*...*3*2*1] = n*(n-1)!
+$$
+so we can easily write the codes as follows:
 
+```lisp
+(define (factorial n)
+ 	(if (= n 1)
+ 		1
+ 		(* n (factorial (- n 1)))))
+```
 
+We can describe the computation by saying that the counter and the product simultaneously change from  one step to the next according to the rule 
+$$
+product \leftarrow counter*product
+$$
 
+$$
+counter \leftarrow counter +1
+$$
 
+and stipulating that n! is the value of the product when the counter exceeds n.and then we can use the substituting method to exchange the files.
 
+![](img/1-2-1.png)
+
+Once again, we can recast our description as a procedure for computing factorials: 
+
+```lisp
+(define (factorial n)
+ 	(fact-iter 1 1 n))
+(define (fact-iter product counter max-count)
+ 	(if (> counter max-count)
+ 		product
+ 		(fact-iter (* counter product)
+ 				   (+ counter 1)
+ 				   max-count)))
+```
+
+![](img/1-2-2.png)
+
+Consider the first process. The substitution model reveals a shape of expansion followed by contraction,  indicated by the arrow in figure 1.3. The expansion occurs as the process builds up a chain of deferred  operations (in this case, a chain of multiplications). The contraction occurs as the operations are actually  performed. This type of process, characterized by a chain of deferred operations, is called a recursive  process. Carrying out this process requires that the interpreter keep track of the operations to be performed  later on.
+
+By contrast, the second process does not grow and shrink.At each step, all we need to keep track of, for any n, are the current values of the variables **product**, **counter**, and **max-count**. We call this an  **iterative process**. In general, an iterative process is one whose state can be summarized by a fixed number  of **state variables.**
+
+One reason that the distinction between process and procedure may be confusing is that most  implementations of common languages (including Ada, Pascal, and C) are designed in such a way that the  interpretation of any recursive procedure consumes an amount of memory that grows with the number of  procedure calls, even when the process described is, in principle, iterative. As a consequence, these  languages can describe iterative processes only by resorting to special-purpose '**looping constructs** 'such  as `do, repeat, until, for, and while`. The implementation of Scheme we shall consider will execute an iterative process in constant space, even if the iterative  process is described by a recursive procedure. An implementation with this property is called **tail-recursive**. **With a tail-recursive implementation, iteration can be expressed using the ordinary procedure  call mechanism, so that special iteration constructs are useful only as syntactic sugar.** 
+
+### 1.2.2 Tree Recursion
+
+Another common pattern of computation is called tree recursion. As an example, consider computing the  sequence of Fibonacci numbers, in which each number is the sum of the preceding two.
+
+In general, the Fibonacci numbers can be defined by the rule  
+$$
+Fib(n) = 
+	\begin{cases}
+	0 \text{    if n = 0} \\
+	1 \text{ if n =1} \\
+	Fib(n-1)+Fib(n-2) \text{  otherwise}\\
+    
+	\end{cases}
+$$
+We can immediately translate this definition into a recursive procedure for computing Fibonacci numbers: 
+
+```lisp
+(define (fib n)
+	(cond ((= n 0) 0)
+ 		((= n 1) 1)
+ 		(else (+ (fib (- n 1))
+ 				 (fib (- n 2))))))
+```
+
+![](img/1-2-3.png)
+
+​	In general, the number of steps required by a tree-recursive process will be **proportional to the number of nodes in the tre**e, while the space required will be  **proportional to the maximum depth** of the tree.
+
+We can also formulate an iterative process for computing the Fibonacci numbers. The idea is to use a pair  of integers a and b, initialized to Fib(1) = 1 and Fib(0) = 0, and to repeatedly apply the simultaneous  transformations
+$$
+a \leftarrow a+b\\
+b\leftarrow a
+$$
+
+```lisp
+(define (fib n)
+ 	(fib-iter 1 0 n))
+(define (fib-iter a b count)
+ 	(if (= count 0)
+ 		b
+ 		(fib-iter (+ a b) a (- count 1))))
+```
+
+#### Example:Counting change
+
+In contrast, consider the  following problem: How many different ways can we make change of $ 1.00, given half-dollars, quarters,  dimes, nickels, and pennies? More generally, can we write a procedure to compute the number of ways to  change any given amount of money? 
+
+This problem has a simple solution as a recursive procedure. Suppose we think of the types of coins  available as arranged in some order. Then the following relation holds: 
+
+The number of ways to change amount a using n kinds of coins equals 
+
+- the number of ways to change amount a using all but the first kind of coin, plus 
+- the number of ways to change amount a - d using all n kinds of coins, where d is the denomination  of the first kind of coin 
+
+We can easily translate this description into a recursive procedure: 
+
+```lisp
+(define (count-change amount)
+ 	(cc amount 5))
+(define (cc amount kinds-of-coins)
+ 	(cond ((= amount 0) 1)
+ 		((or (< amount 0) (= kinds-of-coins 0)) 0)
+ 		(else (+ (cc amount
+ 					 (- kinds-of-coins 1))
+ 				 (cc (- amount
+ 						(first-denomination kinds-of-coins))
+ 					 kinds-of-coins)))))
+(define (first-denomination kinds-of-coins)
+ 	(cond ((= kinds-of-coins 1) 1)
+ 		((= kinds-of-coins 2) 5)
+ 		((= kinds-of-coins 3) 10)
+ 		((= kinds-of-coins 4) 25)
+ 		((= kinds-of-coins 5) 50)))
+```
+
+### 1.2.3 Orders of Growth
+
+Let n be a parameter that measures the size of the problem, and let R(n) be the amount of resources the  process requires for a problem of size n. R(n) might measure the number of internal storage registers used, the number of  elementary machine operations performed, and so on. In computers that do only a fixed number of  operations at a time, the time required will be proportional to the number of elementary machine  operations performed.
+
+We say that $R(n)$ has order of growth $\Theta(f(n))$, written $R(n) = \Theta(f(n))$ (pronounced  "**theta of f(n)**''), if there  are positive constants $k1$ and $k2 $independent of n such that 
+$$
+k_1f(n) \le R(n) \le k_2f(n)
+$$
+for **any** sufficiently large value of n. 
+
+### 1.2.4 Exponentiation
+
+Consider the problem of computing the exponential of a given number. We would like a procedure that  takes as arguments a base b and a positive integer exponent n and computes bn. One way to do this is via  the recursive definition  
+$$
+b^n = b*b^{n-1} \\
+b^0 = 1
+$$
+which translates readily into the procedure 
+
+```lisp
+(define (expt b n)
+ 	(if (= n 0)
+ 	1
+ 	(* b (expt b (- n 1)))))
+```
+
+We can also take advantage of successive  squaring in computing exponentials in general if we use the rule 
+$$
+b^n = (b^{n/2})^2 \text{   if n is even} \\
+b^n = b*b^{n-1} \text{   if n is odd}\\
+$$
+We can express this method as a procedure 
+
+```lisp
+(define (fast-expt b n)
+	(cond ((= n 0) 1)
+ 		((even? n) (square (fast-expt b (/ n 2))))
+ 		(else (* b (fast-expt b (- n 1))))))
+```
+
+ Thus, the number of multiplications required for an exponent of n grows  about as fast as the logarithm of n to the base 2. The process has $\Theta(log n)$ growth. 
+
+### 1.2.5 Greatest Common Divisors
+
+The idea of the algorithm is based on the observation that, if r is the remainder when a is divided by b,  then the common divisors of a and b are precisely the same as the common divisors of b and r. Thus, we  can use the equation 
+$$
+GCD(a,b) = GCD(b,r)
+$$
+It is easy to express Euclid's Algorithm as a procedure: 
+
+```lisp
+(define (gcd a b)
+	(if (= b 0)
+ 	a
+ 	(gcd b (remainder a b))))
+```
+
+**Lamé's Theorem**: If Euclid's Algorithm requires k steps to compute the GCD of some pair, then the  smaller number in the pair must be greater than or equal to the kth Fibonacci number 
+
+### 1.2.6 Example:Testing for Primality
+
+#### Searching for divisors
+
+Since ancient times, mathematicians have been fascinated by problems concerning prime numbers, and  many people have worked on the problem of determining ways to test if numbers are prime. One way to  test if a number is prime is to find the number's divisors. The following program finds the smallest integral  divisor (greater than 1) of a given number n. It does this in a straightforward way, by testing n for  divisibility by successive integers starting with 2.
+
+```lisp
+(define (smallest-divisor n)
+ (find-divisor n 2))
+(define (find-divisor n test-divisor)
+ (cond ((> (square test-divisor) n) n)
+ ((divides? test-divisor n) test-divisor)
+ (else (find-divisor n (+ test-divisor 1)))))
+(define (divides? a b)
+ (= (remainder b a) 0))
+```
+
+Consequently,  the number of steps required to identify n as prime will have order of growth $\Theta(\sqrt{n})$
+
+#### The Fermat test
+
+**Fermat's Little Theorem**: If n is a prime number and a is any positive integer less than n, then a raised to  the nth power is congruent to $ a$ modulo$ n$. 
+$$
+\text{if n is prime , any integer } a < n \text{ then}\\
+a^n  = a\text{  (mod n)}
+$$
+To implement the Fermat test, we need a procedure that computes the exponential of a number modulo  another number: 
+
+```lisp
+(define (expmod base exp m)
+ 	(cond ((= exp 0) 1)
+ 		((even? exp)
+ 		(remainder (square (expmod base (/ exp 2) m))
+ 					m))
+ 		(else
+ 		(remainder (* base (expmod base (- exp 1) m))
+ 					m))))
+```
+
+The Fermat test is performed by choosing at random a number a between 1 and n - 1 inclusive and  checking whether the remainder modulo n of the nth power of a is equal to a. 
+
+```lisp
+(define (fermat-test n)
+ 	(define (try-it a)
+ 		(= (expmod a n n) a))
+ 	(try-it (+ 1 (random (- n 1)))))
+```
+
+The following procedure runs the test a given number of times, as specified by a parameter. Its value is  true if the test succeeds every time, and false otherwise 
+
+```lisp
+(define (fast-prime? n times)
+ 	(cond ((= times 0) true)
+ 		((fermat-test n) (fast-prime? n (- times 1)))
+ 		(else false)))
+```
+
+#### Probabilistic methods
+
+The Fermat test differs in character from most familiar algorithms, in which one computes an answer that  is guaranteed to be correct. Here, the answer obtained is only probably correct. More precisely, if n ever  fails the Fermat test, we can be certain that n is not prime. But the fact that n passes the test, while an  extremely strong indication, is still not a guarantee that n is prime. What we would like to say is that for  any number n, if we perform the test enough times and find that n always passes the test, then the  probability of error in our primality test can be made as small as we like. 
+
+## 1.3 Formulating Abstractions with Higher-Order procedures
 
 
 
