@@ -1,0 +1,17 @@
+#lang sicp
+(define (cube-roots tar)
+  (calc-iter 1 tar))
+(define (calc-iter guess tar)
+    (if (good-enou? guess tar)
+        guess
+        (calc-iter (improve guess tar)
+                   tar)))
+(define (good-enou? x y)
+  (< (abs(- (* x x x) y)) 0.00001))
+(define (improve y x)
+    (/ (+ (/ x (square y))(* 2 y)) 3)
+  )
+(define (square x)
+  (* x x))
+(define ans (cube-roots 8))
+(exact->inexact ans)

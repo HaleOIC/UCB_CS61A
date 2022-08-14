@@ -151,6 +151,14 @@ Two points to be stressaed:
 -  The purpose of the substitution is to help us think about procedure application, not to provide a  description of how the interpreter really works. Typical interpreters do not evaluate procedure  applications by manipulating the text of a procedure to substitute values for the formal parameters.  In practice, the ``substitution'' is accomplished by using a local environment for the formal  parameters. We will discuss this more fully in chapters 3 and 4 when we examine the  implementation of an interpreter in detail 
 - Over the course of this book, we will present a sequence of increasingly elaborate models of how  interpreters work, culminating with a complete implementation of an interpreter and compiler in  chapter 5. The substitution model is only the first of these models -- a way to get started thinking  formally about the evaluation process. In general, when modeling phenomena in science and  engineering, we begin with simplified, incomplete models. As we examine things in greater detail,  these simple models become inadequate and must be replaced by more refined models. The  substitution model is no exception. In particular, when we address in chapter 3 the use of  procedures with ``mutable data,'' we will see that the substitution model breaks down and must be  replaced by a more complicated model of procedure application.
 
+#### Applicative order VS normal order
+
+​	An alternative evaluation model would not evaluate the operands until their values  were needed. Instead it would first substitute operand expressions for parameters until it obtained an  expression involving only primitive operators, and would then perform the evaluation. For Example：
+
+![](img/1-1-4.png)
+
+In particular, the  evaluations of (+ 5 1) and (* 5 2) are each performed twice here, corresponding to the reduction of  the expression.This alternative **fully expand and then reduce** evaluation method is known as **normal-order evaluation**,  in contrast to the **evaluate the arguments and then apply**' method that the interpreter actually uses, which  is called **applicative-order evaluation**. 
+
 ### 1.1.6 Conditional Expressions and Predicates 
 
 $$
@@ -213,15 +221,87 @@ some other primitive procedure
 
 
 
+### 1.1.7 Example:Square Roots by Newton's Method
 
+$$
+\sqrt{x} = \text{the y such that y >= 0 and } y^2 = x
+$$
 
+we can define the square-root funcion as above.
 
+The contrast between function and procedure is a reflection of the general distinction between describing  properties of things and describing how to do things, or, as it is sometimes referred to, the distinction  between declarative knowledge and imperative knowledge.
 
+So we can write the basic procedure:
 
+```lisp
+(define (sqrt-iter guess x )
+	(if (good-enough? guess x)
+		guess
+		(sqrt-iter(improve guess x)
+		x)))
+```
 
+A guess is improved by averaging it with the quotient of the radicand and the old guess: 
 
+```lisp
+(define (improve guess x)
+ (average guess (/ x guess)))
+```
 
+where:
 
+```lisp
+(define (average x y)
+ (/ (+ x y) 2))
+(define (good-enough? guess x)
+ (< (abs (- (square guess) x)) 0.001))
+```
+
+Finally,we can get all the things.
+
+### 1.1.8 Procedures as Black-Box Abstractions
+
+![](img/1-1-5.png)
+
+​	A procedure definition should be able to **suppress detail**. The users of the procedure may not have  written the procedure themselves, but may have obtained it from another programmer as a black box. A  user should not need to know how the procedure is implemented in order to use it. 
+
+#### Local names
+
+This principle -- that the meaning of a procedure should be independent of the parameter names used by its  author -- seems on the surface to be self-evident, but its consequences are profound. The simplest  consequence is that the parameter names of a procedure must be local to the body of the procedure. For  example, we used square in the definition of good-enough? in our square-root procedure.
+
+A formal parameter of a procedure has a very special role in the procedure definition, in that it doesn't  matter what name the formal parameter has.  
+
+#### Internal definitions and block structure
+
+we allow  a procedure to have internal definitions that are local to that procedure. For example, in the square-root  problem we can write 
+
+```lisp
+(define (sqrt x)
+ (define (good-enough? guess x)
+ 	(< (abs (- (square guess) x)) 0.001))
+ (define (improve guess x)
+ 	(average guess (/ x guess)))
+ (define (sqrt-iter guess x)
+ 	(if (good-enough? guess x)
+ 		guess
+ 		(sqrt-iter (improve guess x) x)))
+ 	(sqrt-iter 1.0 x))
+```
+
+Such nesting of definitions, called **block structure**, is basically the right solution to the simplest name-packaging problem.   it is not necessary to pass x explicitly to each of these procedures. Instead, we allow x to be a free variable in the internal definitions, as shown below. Then x gets its value from the argument with which  the enclosing procedure sqrt is called. This discipline is called **lexical scoping** 
+
+```lisp
+(define (sqrt x)
+ 	(define (good-enough? guess)
+ 		(< (abs (- (square guess) x)) 0.001))
+ 	(define (improve guess)
+ 		(average guess (/ x guess)))
+ 	(define (sqrt-iter guess)
+ 		(if (good-enough? guess)
+ 			guess
+ 			(sqrt-iter (improve guess))))
+ 	(sqrt-iter 1.0))
+```
 
 
 
