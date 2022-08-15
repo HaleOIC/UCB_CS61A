@@ -1,0 +1,6 @@
+#lang sicp
+(define (next p)
+  (if (even?) (+ p 3) (+ p 2)))
+(define (smallest-divisor p)
+  ()
+      
