@@ -557,6 +557,329 @@ The Fermat test differs in character from most familiar algorithms, in which one
 
 ## 1.3 Formulating Abstractions with Higher-Order procedures
 
+Procedures that  manipulate procedures are called **higher-order procedures**. 
+
+### 1.3.1 Procedures as Arguments
+
+Consider the following three procedures. The first computes the sum of the integers from a through b 
+
+```lisp
+(define (sum-integers a b)
+	(if (> a b)
+ 	0
+ 	(+ a (sum-integers (+ a 1) b))))
+
+```
+
+The second computes the sum of the cubes of the integers in the given range 
+
+```lisp
+(define (sum-cubes a b)
+ (if (> a b)
+ 0
+ (+ (cube a) (sum-cubes (+ a 1) b))))
+```
+
+The third computes the sum of a sequence of terms in the series 
+$$
+\frac{1}{1*3}+\frac{1}{3*5} +\frac{1}{5*7}+\cdots
+$$
+which converges to $\frac{\pi}{8}$ (very slowly): 
+
+```lisp
+(define (pi-sum a b)
+ (if (> a b)
+ 0
+ (+ (/ 1.0 (* a (+ a 2))) (pi-sum (+ a 4) b))))
+```
+
+These three procedures clearly share a common underlying pattern.  We could generate each of the procedures by filling in slots  in the same template: 
+
+```lisp
+(define (<name> a b)
+ 	(if (> a b)
+ 	0
+ 	(+ (<term> a)
+ 		(<name> (<next> a) b))))
+```
+
+Indeed, mathematicians long ago identified the abstraction of summation of a series and invented "sigma notation'' for example 
+$$
+\sum_{n = a}^{b} f(n) = f(a)+\cdots+f(b)
+$$
+The power of sigma notation is that it allows mathematicians to deal with the  concept of summation itself rather than only with particular sums 
+
+We can do so readily in our procedural language by taking the common template shown  above and transforming the ``slots'' into formal parameters 
+
+```lisp
+(define (sum term a next b)
+ 	(if (> a b)
+ 	0
+ 	(+ (term a)
+ 	(sum term (next a) next b))))
+```
+
+Notice that sum takes as its arguments the lower and upper bounds a and b together with the procedures  term and next. For example, we can use it (along with  a procedure `inc` that increments its argument by 1) to define `sum-cubes`: 
+
+```lisp
+(define (inc n) (+ n 1))
+(define (sum-cubes a b)
+ (sum cube a inc b))
+```
+
+Once we have sum, we can use it as a building block in formulating further concepts. For instance, the  definite integral of a function f between the limits a and b can be approximated numerically using the  formula 
+$$
+\int_a^b f= [f(a+\frac{dx}{2})+f(a+dx+\frac{dx}{2})+f(a+2dx+\frac{dx}{2})+\cdots] dx
+$$
+for small values of dx. We can express this directly as a procedure: 
+
+```lisp
+(define (integral f a b dx)
+ 	(define (add-dx x) (+ x dx))
+ 	(* (sum f (+ a (/ dx 2.0)) add-dx b)
+ 		dx))
+(integral cube 0 1 0.01)
+.24998750000000042
+(integral cube 0 1 0.001)
+.249999875000001
+```
+
+### 1.3.2 constructing Procedures using Lambda
+
+In general, $lambda$ is used to create procedures in the same way as define, except that no name is  specified for the procedure: 
+$$
+\text{( lambda  (< formal-parameters > ) < body > ) }
+$$
+The resulting procedure is just as much a procedure as one that is created using define. The only  difference is that it has not been associated with any name in the environment. In fact, 
+
+`(define (plus4 x)(+ x 4))`
+
+is equivalent to
+
+`(define plus4(lambda (x) (+ x 4)))`
+
+![](img/1-3-1.png)
+
+a lambda expression can be used as the operator in  a combination such as 
+
+```lisp
+((lambda (x y z) (+ x y (square z))) 1 2 3)
+12
+```
+
+more generally, in any context where we would normally use a procedure name. 
+
+#### Using let to create local variables
+
+![](img/1-3-2.png)
+
+In writing a procedure to compute f, we would like to include as local variables not only x and y but also  the names of intermediate quantities like a and b. One way to accomplish this is to use an auxiliary  procedure to bind the local variables: 
+
+```lisp
+(define (f x y)
+ 	(define (f-helper a b)
+ 		(+ (* x (square a))
+ 		   (* y b)
+ 		   (* a b)))
+ 	(f-helper (+ 1 (* x y)) 
+ 			  (- 1 y)))
+```
+
+Using  let, the f procedure could be written as 
+
+```lisp
+(define (f x y)
+ (let ((a (+ 1 (* x y)))
+ 		(b (- 1 y)))
+ 	(+ (* x (square a))
+ 		(* y b)
+ 		(* a b))))
+```
+
+The general form of a `let` expression is 
+
+![](img/1-3-3.png)
+
+which can be thought of as saying 
+
+![](img/1-3-4.png)
+
+ **A let expression is  simply syntactic sugar for the underlying lambda application** 
+
+- $Let$ allows one to bind variables as locally as possible to where they are to be used 
+- The variables' values are computed outside the let. This matters when the expressions that  provide the values for the local variables depend upon variables having the same names as the  local variables themselves 
+
+### 1.3.3 Procedures as General Methods
+
+The variables' values are computed outside the let. This matters when the expressions that  provide the values for the local variables depend upon variables having the same names as the  local variables themselves 
+
+#### Finding roots of equations by the half-interval method
+
+The half-interval method is a simple but powerful technique for finding roots of an equation f(x) = 0, where  f is a continuous function. The idea is that, if we are given points a and b such that $f(a) < 0 < f(b)$, then f must have at least one zero between a and b. let x be the average of a and b and compute  f(x). If $f(x) > 0$, then f must have a zero between a and x. If $f(x) < 0$, then f must have a zero between x and  b.the number of steps required grows as $\Theta(log( L/T))$, where L is the length of the original interval and T is the error tolerance.
+
+```lisp
+(define (search f neg-point pos-point)
+ 	(let ((midpoint (average neg-point pos-point)))
+ 		(if (close-enough? neg-point pos-point)
+ 			midpoint
+ 			(let ((test-value (f midpoint)))
+ 				(cond ((positive? test-value)
+ 						(search f neg-point midpoint))
+ 					  (negative? test-value)
+ 						(search f midpoint pos-point))
+ 					  (else midpoint))))))
+```
+
+To test whether the endpoints are ``close enough'' we can use a procedure similar to the one used in  section 1.1.7 for computing square roots: 
+
+```lisp
+(define (close-enough? x y)
+ (< (abs (- x y)) 0.001))
+```
+
+Search is awkward to use directly, because we can accidentally give it points at which f's values do not  have the required sign, in which case we get a wrong answer. Instead we will use search via the  following procedure, 
+
+```lisp
+(define (half-interval-method f a b)
+ 	(let ((a-value (f a))
+ 		  (b-value (f b)))
+ 		(cond ((and (negative? a-value) (positive? b-value))
+ 				(search f a b))
+ 			  ((and (negative? b-value) (positive? a-value))
+ 				(search f b a))
+ 			  (else
+ 				(error "Values are not of opposite sign" a b)))))
+```
+
+#### Finding fixed points of functions
+
+A number x is called a fixed point of a function f if x satisfies the equation f(x) = x. For some functions f we  can locate a fixed point by beginning with an initial guess and applying f repeatedly, 
+$$
+f(x),f(f(x)),f(f(f(x)))\dots
+$$
+until the value does not change very much. 
+
+```lisp
+(define tolerance 0.00001)
+(define (fixed-point f first-guess)
+  (define (close-enough? v1 v2)
+ 	(< (abs (- v1 v2)) tolerance))
+  (define (try guess)
+ 	(let ((next (f guess)))
+ 		(if (close-enough? guess next)
+ 			next
+ 			(try next))))
+ (try first-guess))
+```
+
+ Computing the square root  of some number x requires finding a y such that y2 = x. Putting this equation into the equivalent form y =  x/y, we recognize that we are looking for a fixed point of the function58 y x/y, and we can therefore try  to compute square roots as 
+
+```lisp
+(define (sqrt x)
+ (fixed-point (lambda (y) (/ x y))
+ 				1.0))
+```
+
+Unfortunately, this fixed-point search does not converge. In some case,it will make the situation named oscillating about the answer.
+
+to solve the problem, we can use the easy method is derivation
+$$
+x = \frac{x+f(x)}{2}
+$$
+to decrease the step.
+
+### 1.3.4 Procedures as Returned Values
+
+We can achieve even more expressive power by  creating procedures whose returned values are themselves procedures. 
+
+#### Newton's method
+
+If $x\rightarrow g(x)$ is a differentiable function, then a solution of the equation g(x) = 0 is  a fixed point of the function $x \rightarrow f(x)$ where 
+$$
+f(x) = x - \frac{g(x)}{Dg(x)}
+$$
+and $Dg(x)$ is the derivative of g evaluated at x. 
+
+In general, if g is a function and dx is a small number, then the derivative $\text{Dg of g}$ is the function whose value at any number x is given (in the  limit of small $dx$) by
+
+  
+$$
+Dg(x) = \frac{g(x+dx)-g(x)}{dx}
+$$
+Thus, we can express the idea of derivative (taking dx to be, say, 0.00001) as the procedure 
+
+```lisp
+(define (deriv g)
+ (lambda (x)
+ 	(/ (- (g (+ x dx)) (g x))
+ 		dx)))
+ (define dx 0.00001)
+```
+
+#### Abstractions and first-class procedures
+
+Each method  begins with a function and finds a fixed point of some transformation of the function. We can express this  general idea itself as a procedure: 
+
+```lisp
+(define (fixed-point-of-transform g transform guess)
+ (fixed-point (transform g) guess))
+```
+
+This very general procedure takes as its arguments a procedure g that computes some function, a procedure  that transforms g, and an initial guess. The returned result is a fixed point of the transformed function. 
+
+The significance of  higher-order procedures is that they enable us to represent these abstractions explicitly as elements in our  programming language, so that they can be handled just like other computational elements 
+
+Elements with the fewest restrictions are said to have first-class status. Some of the  "rights and privileges'' of first-class elements are: 
+
+- They may be named by variables 
+- They may be passed as arguments to procedures 
+- They may be returned as the results of procedures.  
+- They may be included in data structures. 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
