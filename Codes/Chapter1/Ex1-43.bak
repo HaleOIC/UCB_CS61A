@@ -1,3 +1,0 @@
-#lang sicp
-(define (n-times f n)
-  (lambda (x) ))
