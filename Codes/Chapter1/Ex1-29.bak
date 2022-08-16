@@ -1,0 +1,7 @@
+#lang sicp
+(define (sum term a next b)
+  (if (> a b)
+      1
+     0
+     (+ (term a)
+        (sum term a (next a) next b))))
