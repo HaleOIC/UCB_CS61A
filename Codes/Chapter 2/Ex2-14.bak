@@ -1,0 +1,11 @@
+#lang sicp
+(define (make-interval x y)
+  (cond ((> x y) (make-interval y x))
+        (else (cons x y))))
+(define (lower-bound tar) (car tar))
+(define (upper-bound tar) (cdr tar))
+(define (print tar)
+  (newline)
+  (display (lower-bound tar))
+  (display ",")
+  (display (upper-bound tar)))
