@@ -280,11 +280,82 @@ Another way to implement scale-tree is to regard the tree as a sequence of sub-t
  		tree))
 ```
 
+### 2.2.3 Sequences as Conventional Interfaces
 
+Our  two procedures decompose the computations in a different way, spreading the enumeration over the  program and mingling it with the map, the filter, and the accumulation. If we could organize our programs  to make the signal-flow structure manifest in the procedures we write, this would increase the conceptual  clarity of the resulting code. 
 
+#### Sequences Operations
 
+Filtering a sequence to select only those elements that satisfy a given predicate is accomplished by 
 
+```lisp
+(define (filter predicate sequence)
+	(cond ((null? sequence) nil)
+		((predicate (car sequence))
+		 (cons (car sequence)
+ 				(filter predicate (cdr sequence))))
+ 		(else (filter predicate (cdr sequence)))))
+```
 
+Accumulations can be implemented by  
+
+```lisp
+(define (accumulate op initial sequence)
+	(if (null? sequence)
+		initial
+		(op (car sequence)
+ 			(accumulate op initial (cdr sequence)))))
+```
+
+​	 We can  encourage modular design by providing a library of standard components together with a conventional  interface for connecting the components in flexible ways. 
+
+​	Modular construction is a powerful strategy for controlling complexity in engineering design. In real signal,processing applications, for example, designers regularly build systems by cascading elements selected  from standardized families of filters and transducers. Similarly, sequence operations provide a library of  tandard program elements that we can mix and match. 
+
+Sequences, implemented here as lists, serve as a conventional interface that permits us to combine  processing modules. Additionally, when we uniformly represent structures as sequences, we have localized  the data-structure dependencies in our programs to a small number of sequence operations. By changing  these, we can experiment with alternative representations of sequences, while leaving the overall design of  our programs intact.
+
+#### Nested Mappings
+
+ Given a positive integer n, find all ordered pairs of distinct positive  integers i and j, where 1< j< i< n, such that i + j is prime. For example, if n is 6, then the pairs are the  following: 
+
+![](img/2-2-4.png)
+
+For each i in this sequence, we map along the sequence `(enumerate- interval 1 (- i 1)) `we generate the pair `(list i j)`. This  gives us a sequence of pairs for each i. 
+
+```lisp
+(accumulate append
+ 			nil
+ 			(map (lambda (i)
+ 					(map (lambda (j) (list i j))
+ 						(enumerate-interval 1 (- i 1))))
+ 					(enumerate-interval 1 n)))
+```
+
+The combination of mapping and accumulating with append is so common in this sort of program that we  will isolate it as a separate procedure:  
+
+```lisp
+(define (flatmap proc seq)
+ 	(accumulate append nil (map proc seq)))
+```
+
+Nested mappings are also useful for sequences other than those that enumerate intervals 
+
+```lisp
+(define (permutations s)
+	(if (null? s) ; 			empty set?
+		(list nil) ; 			sequence containing empty set
+ 		(flatmap (lambda (x)
+ 				(map (lambda (p) (cons x p))
+ 					 (permutations (remove x s))))
+ 				s)))
+```
+
+The remove procedure used in permutations returns  all the items in a given sequence except for a given item. This can be expressed as a simple filter: 
+
+```lisp
+(define (remove item sequence)
+		(filter (lambda (x) (not (= x item)))
+ 			sequence))
+```
 
 
 
