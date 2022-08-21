@@ -1,4 +1,0 @@
-#lang sicp
-(define (make-interval x y)
-  (cond ((> x y) (make-interval y x))
-        (else (cons x y))))

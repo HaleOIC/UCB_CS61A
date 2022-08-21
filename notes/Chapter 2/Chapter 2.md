@@ -121,3 +121,119 @@ Alyssa's idea is to implement "**interval arithmetic**'' as a set of arithmetic 
  (max p1 p2 p3 p4))))
 ```
 
+## 2.2 Hierarchical Data and the Closure property
+
+In this  representation, which is called **box-and-pointer notation**, each object is shown as a pointer to a box. 
+
+![](img/2-2-1.png)
+
+Closure is the key to power in any means of  combination because it permits us to create **hierarchical structures** -- structures made up of parts, which  themselves are made up of parts, and so on. 
+
+### 2.2.1 Representing Sequences
+
+One of the useful structures we can build with pairs is a **sequence** ——an ordered collection of data objects .The **car** of each pair is the corresponding item in the chain, and the **cdr** of the pair is the next pair in the  chain. The **cdr** of the final pair signals the end of the sequence by pointing to a distinguished value that is  not a pair, represented in box-and-pointer diagrams as a diagonal line and in programs as the value of the  variable nil. The entire sequence is constructed by nested cons operations 
+
+```lisp
+(cons 1
+	(cons 2
+		(cons 3 
+			(cons 4 nil ))))
+```
+
+Such a sequence of pairs, formed by nested **conses**, is called a **list**.
+$$
+\text{(list <a1> <a2> <a3>...<an>)}
+$$
+is equivalent to 
+$$
+\text{(cons <a1> (cons <a2> (cons ... (cons <an> nil)...)))}
+$$
+We can think of **car** as selecting the **first item** in the list, and of **cdr** as selecting the **sublist** consisting of  all but the first item. The value of **nil**, used to terminate the chain of pairs, can be thought of as a sequence of no elements, the  **empty list.** The word **nil** is a contraction of the Latin word nihil, which means "nothing". 
+
+#### List Operations
+
+**list-ref** takes as arguments a list and a number n and returns the **nth** item of the list.
+
+- For $n = 0$ ,list-ref should return the **car** of the list
+- Otherwise, list-ref should return the (n - 1)st item of the **cdr** of the list.
+
+```lisp
+(define (list-ref items n)
+	(if (= n 0)
+		(car items)
+		(list-ref (cdr items) (- n 1))))
+(define squares (list 1 4 9 16 25))
+
+(list-ref squares 3)
+```
+
+The procedure **length**, which returns the number of items in a  list, illustrates this typical pattern of use:
+
+```lisp
+(define (length items)
+	(if (null? items)
+		0
+		(+ 1 (length (cdr items)))))
+(define odds (list 1 3 5 7))
+
+(length odds)
+```
+
+procedure step:
+
+- The **length** of any list is 1 plus the **length** of the **cdr** of the list.
+- The **length** of the empty list is 0.  
+
+**Append** is also implemented using a recursive plan. To append lists list1 and list2, do the  following: 
+
+- If  **list1** is the empty list, then the result is just **list2** 
+- Otherwise, **append** the **cdr** of **list1** and **list2**, and **cons** the **car** of **list1** onto the result:  
+
+```lisp
+(define (append list1 list2)
+	(if (null? list1)
+		list2
+		(cons (car list1) (append (cdr list1) list2))))
+```
+
+#### Mapping over lists
+
+One extremely useful operation is to apply some transformation to each element in a list and generate the  list of results. For instance, the following procedure scales each number in a list by a given factor 
+
+```lisp
+(define (scale-list items factor)
+ (if (null? items)
+ nil
+ (cons (* (car items) factor)
+ (scale-list (cdr items) factor))))
+(scale-list (list 1 2 3 4 5) 10)
+(10 20 30 40 50)
+```
+
+We can abstract this general idea and capture it as a common pattern expressed as a higher-order procedure 
+
+```lisp
+(define (map proc items)
+	(if (null? items)
+		nil
+		(cons (proc (car items))
+			  (map proc (cdr items)))))
+```
+
+Now we can give a new definition of scale-list in terms of map:  
+
+```lisp
+(define (scale-list items factor)
+	(map (lambda (x) (* x factor))
+		  items))
+```
+
+
+
+
+
+ 
+
+
+
+  
