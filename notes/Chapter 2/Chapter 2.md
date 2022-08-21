@@ -228,12 +228,65 @@ Now we can give a new definition of scale-list in terms of map:
 		  items))
 ```
 
+### 2.2.2 Hierarchical Structures
+
+`(cons (list 1 2) (list 3 4)) `
+
+![](img/2-2-2.png)
+
+Another way to think of sequences whose elements are sequences is as trees. 
+
+![](img/2-2-3.png)
+
+ Recursion is a natural tool for dealing with tree structures, since we can often reduce operations on trees to  operations on their branches, which reduce in turn to operations on the branches of the branches, and so on,  until we reach the leaves of the tree.  
+
+To implement count-leaves, recall the recursive plan for computing length: 
+
+- **Length** of a list x is 1 plus length of the **cdr** of x. 
+- **Length** of the empty list is 0.  
+
+```lisp
+(define (count-leaves x)
+	(cond ((null? x) 0) 
+		((not (pair? x)) 1)	
+		(else (+ (count-leaves (car x))
+				 (count-leaves (cdr x))))))
+```
+
+#### Mapping over trees
+
+Just as **map** is a powerful abstraction for dealing with sequences, map together with recursion is a powerful  abstraction for dealing with trees.The recursive plan for **scale-tree** is  similar to the one for **count-leaves**: 
+
+```lisp
+(define (scale-tree tree factor)
+	(cond ((null? tree) nil)
+		((not (pair? tree)) (* tree factor))
+		(else (cons (scale-tree (car tree) factor)
+					(scale-tree (cdr tree) factor)))))
+					
+(scale-tree (list 1 (list 2 (list 3 4) 5) (list 6 7))
+ 10)
+(10 (20 (30 40) 50) (60 70))
+```
+
+Another way to implement scale-tree is to regard the tree as a sequence of sub-trees and use map. We  map over the sequence, scaling each sub-tree in turn, and return the list of results. In the base case, where  the tree is a leaf, we simply multiply by the factor:
+
+```lisp
+(define (scale-tree tree factor)
+	(map (lambda (sub-tree)
+		(if (pair? sub-tree)
+			(scale-tree sub-tree factor)
+			(* sub-tree factor)))
+ 		tree))
+```
 
 
 
 
- 
 
 
 
-  
+
+
+
+

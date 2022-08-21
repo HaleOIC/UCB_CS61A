@@ -1,0 +1,7 @@
+#lang sicp
+(define (fringe tar result)
+  (if (pair? tar)
+      ((fringe (car tar) result)
+       (fringe (cdr tar) result))
+      
+      )
