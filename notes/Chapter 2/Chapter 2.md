@@ -357,7 +357,88 @@ The remove procedure used in permutations returns  all the items in a given sequ
  			sequence))
 ```
 
+## 2.3 Symbolic Data
 
+​	In this  section we extend the representational capability of our language by introducing the ability to work with  arbitrary symbols as data. 
 
+#### 2.3.1 Quotation
 
+In order to manipulate symbols we need a new element in our language: the ability to quote a data object. (traditionally, the single quote symbol `'`) only at the beginning of the  object to be quoted. In keeping with this, we can obtain the empty list by evaluating `'()`, and thus dispense with the variable  `nil`
 
+ One additional primitive used in manipulating symbols is eq?, which takes two symbols as arguments and  tests whether they are the same.35 Using eq?, we can implement a useful procedure called memq. This  takes two arguments, a symbol and a list. If the symbol is not contained in the list (i.e., is not eq? to any  item in the list), then memq returns false. 
+
+```lisp
+(define (memq item x)
+	(cond ((null? x) false)
+		((eq? item (car x)) x)
+		(else (memq item (cdr x)))))
+```
+
+### 2.3.2 Example:Symbolic Differentiation
+
+As an illustration of symbol manipulation and a further illustration of data abstraction, consider the design  of a procedure that performs symbolic differentiation of algebraic expressions. We would like the  procedure to take as arguments an algebraic expression and a variable and to return the derivative of the  expression with respect to the variable 
+
+##### The differentiation program with abstract data
+
+Differentiation of any such expression can be carried out by applying the following reduction  rules :
+
+![](img/2-3-1.png)
+
+That is, to obtain the derivative of a sum we first  find the derivatives of the terms and add them. Each of the terms may in turn be an expression that needs to  be decomposed .
+
+Let us  assume that we already have procedures to implement the following selectors, constructors, and predicates: 
+
+![](img/2-3-2.png)
+
+Using these, and the primitive predicate number?, which identifies numbers, we can express the  differentiation rules as the following procedure: 
+
+```lisp
+(define (deriv exp var)
+	(cond ((number? exp) 0)
+		((variable? exp)
+		 (if (same-variable? exp var) 1 0))
+		((sum? exp)
+		 (make-sum (deriv (addend exp) var)
+				   (deriv (augend exp) var)))
+		 ((product? exp)
+		   (make-sum
+			(make-product (multiplier exp)
+ 						  (deriv (multiplicand exp) var))
+			(make-product (deriv (multiplier exp) var)
+						  (multiplicand exp))))
+ 		  (else
+ 			(error "unknown expression type -- DERIV" exp))))
+```
+
+This $deriv$ procedure incorporates the complete differentiation algorithm. 
+
+#### Repersenting algebraic expressions
+
+we will use the same parenthesized prefix notation that Lisp  uses for combinations;Then our data representation for  the differentiation problem is as follows :
+
+![](img/2-3-3.png)
+
+![](img/2-3-4.png)
+
+The program produces answers that are correct; however, they are unsimplified 
+
+```lisp
+(define (make-sum a1 a2)
+	(cond ((=number? a1 0) a2)
+		  ((=number? a2 0) a1)
+ 		  ((and (number? a1) (number? a2)) (+ a1 a2))
+ 		  (else (list '+ a1 a2))))
+```
+
+Similarly, we will change make-product to build in the rules that 0 times anything is 0 and 1 times  anything is the thing itself 
+
+```lisp
+(define (make-product m1 m2)
+	(cond ((or (=number? m1 0) (=number? m2 0)) 0)
+ 		  ((=number? m1 1) m2)
+		  ((=number? m2 1) m1)
+		  ((and (number? m1) (number? m2)) (* m1 m2))
+		  (else (list '* m1 m2))))
+```
+
+Although this is quite an improvement,  there is still a long way to go before  we get a program that puts expressions into a form that we might agree is ``simplest.'' The problem of  algebraic simplification is complex because, among other reasons, a form that may be simplest for one  purpose may not be for another. 
