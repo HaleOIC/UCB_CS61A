@@ -813,4 +813,278 @@ Alyssa's polar package is analogous:
  'done)
 ```
 
-Even though Ben and Alyssa both still use their original procedures defined with the same names as each  other's (e.g., real-part), these definitions are now internal to different procedures (see section 1.1.8), so  there is no name conflict 
+Even though Ben and Alyssa both still use their original procedures defined with the same names as each  other's (e.g., real-part), these definitions are now internal to different procedures (see section 1.1.8), so  there is no name conflict.
+
+## 2.5 Systems with Generic Operations
+
+The key idea is to link the code that specifies the data operations to the several  representations by means of generic interface procedures. Now we will see how to use this same idea not  only to define operations that are generic over different representations but also to define operations that  are generic over different kinds of arguments. 
+
+there is a single procedure add that operates on whatever  numbers are supplied. Add is part of a generic interface that allows the separate ordinary-arithmetic,  rational-arithmetic, and complex-arithmetic packages to be accessed uniformly by programs that use  numbers. Any individual arithmetic package (such as the complex package) may itself be accessed through  generic procedures (such as add-complex) that combine packages designed for different representations  (such as rectangular and polar). Moreover, the structure of the system is additive, so that one can design  the individual arithmetic packages separately and combine them to produce a generic arithmetic system.  
+
+![](img/2-5-1.png)
+
+### 2.5.1 Generic Arithmetic Operations
+
+The task of designing generic arithmetic operations is analogous to that of designing the generic complex- number operations. We would like, for instance, to have a generic addition procedure add that acts like  ordinary primitive addition **+** on ordinary numbers, 
+
+The generic arithmetic procedures are defined as follows: 
+
+```lisp
+(define (add x y) (apply-generic 'add x y))
+(define (sub x y) (apply-generic 'sub x y))
+(define (mul x y) (apply-generic 'mul x y))
+(define (div x y) (apply-generic 'div x y))
+```
+
+Since these operations each take two arguments, they are installed in the table keyed  by the list `(scheme-number scheme-number):`
+
+```lisp
+(define (install-scheme-number-package)
+ (define (tag x)
+ (attach-tag 'scheme-number x)) 
+ (put 'add '(scheme-number scheme-number)
+ (lambda (x y) (tag (+ x y))))
+ (put 'sub '(scheme-number scheme-number)
+ (lambda (x y) (tag (- x y))))
+ (put 'mul '(scheme-number scheme-number)
+ (lambda (x y) (tag (* x y))))
+ (put 'div '(scheme-number scheme-number)
+ (lambda (x y) (tag (/ x y))))
+ (put 'make 'scheme-number
+ (lambda (x) (tag x)))
+ 'done)
+```
+
+ Users of the Scheme-number package will create (tagged) ordinary numbers by means of the procedure 
+
+```lisp
+(define (make-scheme-number n)
+ ((get 'make 'scheme-number) n))
+```
+
+Now that the framework of the generic arithmetic system is in place, we can readily include new kinds of  numbers. Here is a package that performs rational arithmetic. Notice that, as a benefit of additivity, we can  use without modification the rational-number code from section 2.1.1 as the internal procedures in the  package: 
+
+```lisp
+(define (install-rational-package)
+ ;; internal procedures
+ (define (numer x) (car x))
+ (define (denom x) (cdr x))
+ (define (make-rat n d)
+ (let ((g (gcd n d)))
+ (cons (/ n g) (/ d g))))
+ (define (add-rat x y)
+ (make-rat (+ (* (numer x) (denom y))
+ (* (numer y) (denom x)))
+ (* (denom x) (denom y))))
+ (define (sub-rat x y)
+ (make-rat (- (* (numer x) (denom y))
+ (* (numer y) (denom x)))
+ (* (denom x) (denom y))))
+ (define (mul-rat x y)
+ (make-rat (* (numer x) (numer y))
+ (* (denom x) (denom y))))
+ (define (div-rat x y)
+ (make-rat (* (numer x) (denom y))
+ (* (denom x) (numer y))))
+ ;; interface to rest of the system
+ (define (tag x) (attach-tag 'rational x))
+ (put 'add '(rational rational)
+ (lambda (x y) (tag (add-rat x y))))
+ (put 'sub '(rational rational)
+ (lambda (x y) (tag (sub-rat x y))))
+ (put 'mul '(rational rational)
+ (lambda (x y) (tag (mul-rat x y))))
+ (put 'div '(rational rational)
+ (lambda (x y) (tag (div-rat x y))))
+ (put 'make 'rational
+ (lambda (n d) (tag (make-rat n d))))
+ 'done)
+(define (make-rational n d)
+ ((get 'make 'rational) n d))
+```
+
+We can install a similar package to handle complex numbers, using the tag **complex.**  Programs outside the complex-number package can construct complex numbers either from real and  imaginary parts or from magnitudes and angles 
+
+A typical complex number, such as 3 + 4i in rectangular  form, would be represented as shown in figure 2.24. The outer tag (complex) is used to direct the number  to the complex package. Once within the complex package, the next tag (rectangular) is used to direct  the number to the rectangular package. In a large and complicated system there might be many levels, each  interfaced with the next by means of generic operations. As a data object is passed ``downward,'' the outer  tag that is used to direct it to the appropriate package is stripped off (by applying contents) and the next  level of tag (if any) becomes visible to be used for further dispatching 
+
+![](img/2-5-2.png)
+
+#### 2.5.2 Combing Data of Different Types
+
+ What we have not yet considered is the fact that it is meaningful to define operations that cross  the type boundaries, such as the addition of a complex number to an ordinary number. 
+
+One way to handle cross-type operations is to design a different procedure for each possible combination  of types for which the operation is valid. For example, we could extend the complex-number package so  that it provides a procedure for adding complex numbers to ordinary numbers and installs this in the table  using the tag (complex scheme-number) 
+
+```lisp
+;; to be included in the complex package
+(define (add-complex-to-schemenum z x)
+ (make-from-real-imag (+ (real-part z) x)
+ (imag-part z)))
+(put 'add '(complex scheme-number)
+ (lambda (z x) (tag (add-complex-to-schemenum z x))))
+```
+
+ Formulating coherent policies on the division of responsibility among  packages can be an overwhelming task in designing systems with many packages and many cross-type  operations 
+
+#### Coercion
+
+In the general situation of completely unrelated operations acting on completely unrelated types,  implementing explicit cross-type operations, cumbersome though it may be,  is the best that one can hope  for.Often the different data types are not completely independent, and there may be ways by  which objects of one type may be viewed as being of another type. This process is called **coercion.** 
+
+```lisp
+(define (apply-generic op . args)
+ (let ((type-tags (map type-tag args)))
+ 	(let ((proc (get op type-tags)))
+ 		(if proc
+ 			(apply proc (map contents args))
+ 			(if (= (length args) 2)
+ 				(let ((type1 (car type-tags))
+ 					  (type2 (cadr type-tags))
+ 					  (a1 (car args))
+ 					  (a2 (cadr args)))
+ 				  (let ((t1->t2 (get-coercion type1 type2))
+ 						(t2->t1 (get-coercion type2 type1)))
+ 					(cond (t1->t2
+ 						(apply-generic op (t1->t2 a1) a2))
+ 					   (t2->t1
+ 						(apply-generic op a1 (t2->t1 a2)))
+ 					  (else
+ 						(error "No method for these types"
+ 								(list op type-tags))))))
+ 				(error "No method for these types"
+ 						(list op type-tags)))))))
+```
+
+This coercion scheme has many advantages over the method of defining explicit cross-type operations, as  outlined above. Although we still need to write coercion procedures to relate the types (possibly $n^2$ procedures for a system with n types), we need to write only one procedure for each pair of types rather  than a different procedure for each collection of types and each generic operation.51 What we are counting  on here is the fact that the appropriate transformation between types depends only on the types themselves,  not on the operation to be applied 
+
+#### Hierarchies of types
+
+The coercion scheme presented above relied on the existence of natural relations between pairs of types.  Often there is more ``global'' structure in how the different types relate to each other. For instance, suppose  we are building a generic arithmetic system to handle integers, rational numbers, real numbers, and  complex numbers. In such a system, it is quite natural to regard an integer as a special kind of rational  number, which is in turn a special kind of real number, which is in turn a special kind of complex number.  What we actually have is a so-called **hierarchy of types**.
+
+![](img/2-5-3.png)
+
+If we have a tower structure, then we can greatly simplify the problem of adding a new type to the  hierarchy, for we need only specify how the new type is embedded in the next supertype above it and how  it is the supertype of the type below it.  
+
+Another advantage of a tower is that we can easily implement the notion that every type ``inherits'' all  operations defined on a supertype.  
+
+Yet another advantage of a tower over a more general hierarchy is that it gives us a simple way to ``lower''  a data object to the simplest representation.  
+
+#### Inadequacies of hierarchies
+
+If the data types in our system can be naturally arranged in a tower, this greatly simplifies the problems of  dealing with generic operations on different types, as we have seen. Unfortunately, this is usually not the  case.  in general, a type may have more than one  subtype. Triangles and quadrilaterals, for instance, are both subtypes of polygons. In addition, a type may  have more than one supertype. For example, an isosceles right triangle may be regarded either as an  isosceles triangle or as a right triangle. This multiple-supertypes issue is particularly thorny, since it means  that there is no unique way to ``raise'' a type in the hierarchy. 
+
+![](img/2-5-4.png)
+
+### 2.5.3 Example: Symbolic Algebra
+
+The manipulation of symbolic algebraic expressions is a complex process that illustrates many of the  hardest problems that occur in the design of large-scale systems. An algebraic expression, in general, can  be viewed as a hierarchical structure, a tree of operators applied to operands. 
+
+#### Arithmetic on polynomials
+
+Our first task in designing a system for performing arithmetic on polynomials is to decide just what a  polynomial is. Polynomials are normally defined relative to certain variables (the indeterminates of the  polynomial). For simplicity, we will restrict ourselves to polynomials having just one indeterminate  (univariate polynomials).54 We will define a polynomial to be a sum of terms, each of which is either a  coefficient, a power of the indeterminate, or a product of a coefficient and a power of the indeterminate. A  coefficient is defined as an algebraic expression that is not dependent upon the indeterminate of the  polynomial. 
+$$
+5 x^2+3x+7
+$$
+is a simple polynomial in x and
+$$
+(y^2+1) x^3 + (2y)x+1
+$$
+is a polynomial in x whose coefficients are polynomials in y.
+
+Now we must consider how to go about doing arithmetic on polynomials. In this simple system, we will  consider only addition and multiplication. Moreover, we will insist that two polynomials to be combined  must have the same indeterminate 
+
+```lisp
+(define (add-poly p1 p2)
+ (if (same-variable? (variable p1) (variable p2))
+ (make-poly (variable p1)
+ (add-terms (term-list p1)
+ (term-list p2)))
+ (error "Polys not in same var -- ADD-POLY"
+ (list p1 p2))))
+(define (mul-poly p1 p2)
+ (if (same-variable? (variable p1) (variable p2))
+ (make-poly (variable p1)
+ (mul-terms (term-list p1)
+ (term-list p2)))
+ (error "Polys not in same var -- MUL-POLY"
+ (list p1 p2))))
+```
+
+Polynomial addition is performed termwise. Terms of the same order (i.e., with the same power of the  indeterminate) must be combined.
+
+In order to manipulate term lists, we will assume that we have a constructor **the-empty-termlist** that returns an empty term list and a constructor **adjoin-term** that adjoins a new term to a term list. We  will also assume that we have a predicate **empty-termlist?** that tells if a given term list is empty, a  selector **first-term** that extracts the highest-order term from a term list, and a selector **rest-terms** that returns all but the highest-order term.  
+
+```lisp
+(define (add-terms L1 L2)
+ 	(cond ((empty-termlist? L1) L2)
+ 		  ((empty-termlist? L2) L1)
+ 		  (else
+ 			(let ((t1 (first-term L1)) (t2 (first-term L2)))
+ 				(cond ((> (order t1) (order t2))
+ 					(adjoin-term
+ 					 t1 (add-terms (rest-terms L1) L2)))
+ 					((< (order t1) (order t2))
+ 					 (adjoin-term
+ 					   t2 (add-terms L1 (rest-terms L2))))
+ 					(else
+ 					 (adjoin-term
+ 						(make-term (order t1)
+ 									(add (coeff t1) (coeff t2)))
+ 						(add-terms (rest-terms L1)
+ 									(rest-terms L2)))))))))
+```
+
+In order to multiply two term lists, we multiply each term of the first list by all the terms of the other list,  repeatedly using mul-term-by-all-terms, which multiplies a given term by all terms in a given  term list. 
+
+````lisp
+(define (mul-terms L1 L2)
+	(if (empty-termlist? L1)
+ 		(the-empty-termlist)
+ 		(add-terms (mul-term-by-all-terms (first-term L1) L2)
+ 				   (mul-terms (rest-terms L1) L2))))
+(define (mul-term-by-all-terms t1 L)
+ 	(if (empty-termlist? L)
+ 		(the-empty-termlist)
+ 		(let ((t2 (first-term L)))
+ 			(adjoin-term
+ 				(make-term (+ (order t1) (order t2))
+ 							(mul (coeff t1) (coeff t2)))
+ 				(mul-term-by-all-terms t1 (rest-terms L))))))
+````
+
+the data direction would ensure that the system would follow through another level of recursive calls, and  so on through as many levels as the structure of the data dictates. 
+
+#### Representing term lists
+
+Finally, we must confront the job of implementing a good representation for term lists.   A term list is, in  effect, a set of coefficients keyed by the order of the term. Hence, any of the methods for representing sets, On the other hand, our procedures add-terms and mul-terms always access term lists sequentially from highest to lowest order. Thus, we will use  some kind of ordered list representation.
+
+```lisp
+(define (adjoin-term term term-list)
+ (if (=zero? (coeff term))
+ term-list
+ (cons term term-list)))
+(define (the-empty-termlist) '())
+(define (first-term term-list) (car term-list))
+(define (rest-terms term-list) (cdr term-list))
+(define (empty-termlist? term-list) (null? term-list))
+(define (make-term order coeff) (list order coeff))
+(define (order term) (car term))
+(define (coeff term) (cadr term))
+```
+
+Users of the polynomial package will create (tagged) polynomials by means of the procedure 
+
+```lisp
+(define (make-polynomial var terms)
+ ((get 'make 'polynomial) var terms))
+```
+
+#### Hierarchies of types in symbolic algebra
+
+Our polynomial system illustrates how objects of one type (polynomials) may in fact be complex objects  that have objects of many different types as parts. This poses no real difficulty in defining generic  operations. We need only install appropriate generic operations for performing the necessary  manipulations of the parts of the compound types. In fact, we saw that polynomials form a kind of  "recursive data abstraction,'' in that parts of a polynomial may themselves be polynomials. Our generic  operations and our data-directed programming style can handle this complication without much trouble. 
+
+On the other hand, polynomial algebra is a system for which the data types cannot be naturally arranged in  a tower. 
+
+#### Extend exercise: Rational functions
+
+![](img/2-5-5.png)
+
