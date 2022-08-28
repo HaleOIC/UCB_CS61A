@@ -13,3 +13,6 @@
   (if (memq symbol (symbols tree))
       (iter-encode symbol tree '())
       (error "bad symbol -- ENCODE-SYMBOL" symbol)))
+
+
+; the speed of the growth is O (n log n)
